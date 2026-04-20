@@ -3,12 +3,10 @@ import { pool } from '../db.js';
 
 export const draftsRouter = Router();
 
-const TAGS = ['Фрукты', 'Овощи', 'Мясо', 'Кондименты', 'Крупы', 'Молочка', 'Сладкое', 'Дом'];
-
 function normalizeTag(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
-  return TAGS.includes(t) ? t : null;
+  return t || null;
 }
 
 draftsRouter.get('/', async (_req, res) => {

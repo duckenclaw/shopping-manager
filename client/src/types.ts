@@ -8,7 +8,9 @@ export const TAGS = [
   'Сладкое',
   'Дом',
 ] as const;
-export type Tag = (typeof TAGS)[number];
+
+export type PredefinedTag = (typeof TAGS)[number];
+export type Tag = string;
 
 export type Place = {
   id: number;

@@ -148,14 +148,18 @@ Open the Railway dashboard → your project → the app service → **Variables*
 
 | Variable | Value |
 |----------|-------|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
 | `BOT_TOKEN` | your Telegram bot token |
 | `ALLOWED_USERNAMES` | `"username1 username2"` |
 | `ENABLE_BOT` | `true` |
 
-> `DATABASE_URL` and `PORT` are injected by Railway automatically — do **not** set them manually.
+`${{Postgres.DATABASE_URL}}` is a **reference variable** — Railway resolves it to the connection string of the Postgres service at runtime. Replace `Postgres` with whatever Railway named your database service (visible in the left sidebar of your project).
 
-Or set them from the CLI:
+> `PORT` is injected by Railway automatically — do **not** set it manually.
+
+Or from the CLI (reference variables must be quoted to prevent shell expansion):
 ```bash
+railway variables set 'DATABASE_URL=${{Postgres.DATABASE_URL}}'
 railway variables set BOT_TOKEN=xxxx
 railway variables set ALLOWED_USERNAMES="user1 user2"
 railway variables set ENABLE_BOT=true

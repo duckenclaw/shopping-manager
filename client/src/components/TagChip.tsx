@@ -1,6 +1,4 @@
-import type { Tag } from '../types';
-
-const TAG_COLORS: Record<Tag, string> = {
+const TAG_COLORS: Record<string, string> = {
   Фрукты: '#d14b8f',
   Овощи: '#3fa34d',
   Мясо: '#c0392b',
@@ -11,8 +9,18 @@ const TAG_COLORS: Record<Tag, string> = {
   Дом: '#7d8597',
 };
 
-export function TagChip({ tag, selected, onClick }: { tag: Tag; selected?: boolean; onClick?: () => void }) {
-  const color = TAG_COLORS[tag];
+const DEFAULT_COLOR = '#6b7280';
+
+export function TagChip({
+  tag,
+  selected,
+  onClick,
+}: {
+  tag: string;
+  selected?: boolean;
+  onClick?: () => void;
+}) {
+  const color = TAG_COLORS[tag] ?? DEFAULT_COLOR;
   return (
     <button
       type="button"

@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TagChip } from '../components/TagChip';
 import { useCatalog, useCreateItem } from '../api/hooks';
-import { TAGS, type Tag } from '../types';
+import { TAGS } from '../types';
 
 export default function AddItemPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
-  const [tag, setTag] = useState<Tag | null>(null);
+  const [tag, setTag] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customVal, setCustomVal] = useState('');
+  const customInputRef = useRef<HTMLInputElement>(null);
   const catalog = useCatalog(q);
   const createItem = useCreateItem();
 
@@ -19,7 +22,19 @@ export default function AddItemPage() {
   const hasQuery = q.trim().length > 0;
   const noResults = hasQuery && suggestions.length === 0;
 
-  async function addExisting(name: string, existingTag: Tag | null) {
+  function openCustom() {
+    setCustomOpen(true);
+    setTimeout(() => customInputRef.current?.focus(), 0);
+  }
+
+  function confirmCustom() {
+    const val = customVal.trim();
+    if (val) setTag(val);
+    setCustomOpen(false);
+    setCustomVal('');
+  }
+
+  async function addExisting(name: string, existingTag: string | null) {
     await createItem.mutateAsync({ name, tag: existingTag });
     navigate('/');
   }
@@ -46,7 +61,7 @@ export default function AddItemPage() {
         onChange={(e) => { setQ(e.target.value); setTag(null); }}
       />
 
-      {/* Show catalog matches */}
+      {/* Catalog suggestions */}
       {suggestions.length > 0 && (
         <ul className="suggestion-list">
           {suggestions.map((s) => (
@@ -60,14 +75,52 @@ export default function AddItemPage() {
         </ul>
       )}
 
-      {/* Tag picker — only when no catalog results for the typed query */}
+      {/* Tag picker — only when no catalog results */}
       {noResults && (
         <>
           <p className="muted" style={{ marginBottom: 8 }}>Категория (необязательно):</p>
           <div className="tag-grid">
             {TAGS.map((t) => (
-              <TagChip key={t} tag={t} selected={tag === t} onClick={() => setTag(tag === t ? null : t)} />
+              <TagChip
+                key={t}
+                tag={t}
+                selected={tag === t}
+                onClick={() => setTag(tag === t ? null : t)}
+              />
             ))}
+
+            {/* Custom tag — show selected custom tag OR the + button / input */}
+            {tag && !TAGS.includes(tag as (typeof TAGS)[number]) ? (
+              <button
+                type="button"
+                className="tag-chip tag-chip--selected tag-chip--clickable"
+                style={{ '--tag-color': '#6b7280' } as React.CSSProperties}
+                onClick={() => setTag(null)}
+              >
+                {tag} ×
+              </button>
+            ) : customOpen ? (
+              <input
+                ref={customInputRef}
+                className="tag-input"
+                placeholder="Своя…"
+                value={customVal}
+                onChange={(e) => setCustomVal(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); confirmCustom(); }
+                  if (e.key === 'Escape') { setCustomOpen(false); setCustomVal(''); }
+                }}
+                onBlur={confirmCustom}
+              />
+            ) : (
+              <button
+                type="button"
+                className="tag-chip tag-chip--add tag-chip--clickable"
+                onClick={openCustom}
+              >
+                +
+              </button>
+            )}
           </div>
         </>
       )}
@@ -79,7 +132,7 @@ export default function AddItemPage() {
           onClick={addNew}
           disabled={createItem.isPending}
         >
-          Добавить «{q.trim()}»
+          Добавить «{q.trim()}»{tag ? ` [${tag}]` : ''}
         </button>
       )}
     </div>
