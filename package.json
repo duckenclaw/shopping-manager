@@ -1,0 +1,18 @@
+{
+  "name": "shopping-manager",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,api -c blue,green \"npm:dev -w client\" \"npm:dev -w server\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "start": "node server/dist/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3"
+  }
+}
