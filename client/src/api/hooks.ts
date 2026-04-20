@@ -37,7 +37,7 @@ export function useItems() {
 export function useCreateItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string; tag: Tag | null; placeId: number | null }) =>
+    mutationFn: (input: { name: string; tag: Tag | null; placeId?: number | null; amount?: number }) =>
       api<Item>('/api/items', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -60,11 +60,19 @@ export function useDeleteItem() {
 export function useUpdateItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: number; placeId?: number | null; isChecked?: boolean }) =>
+    mutationFn: (input: { id: number; placeId?: number | null; isChecked?: boolean; amount?: number }) =>
       api(`/api/items/${input.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ placeId: input.placeId, isChecked: input.isChecked }),
+        body: JSON.stringify({ placeId: input.placeId, isChecked: input.isChecked, amount: input.amount }),
       }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['items'] }),
+  });
+}
+
+export function useCompleteAll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<{ deleted: number }>('/api/items/complete', { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['items'] }),
   });
 }

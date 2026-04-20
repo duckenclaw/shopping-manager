@@ -1,6 +1,7 @@
 import { config as loadEnv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 
@@ -40,6 +41,14 @@ app.use('/api/places', placesRouter);
 app.use('/api/items', itemsRouter);
 app.use('/api/catalog', catalogRouter);
 app.use('/api/drafts', draftsRouter);
+
+// Serve Vite-built client in production
+const clientDist = resolve(__dirname, '../../client/dist');
+if (existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (_req, res) => res.sendFile(resolve(clientDist, 'index.html')));
+  console.log('[server] serving client from', clientDist);
+}
 
 app.listen(PORT, () => {
   console.log(`[server] listening on http://localhost:${PORT}`);

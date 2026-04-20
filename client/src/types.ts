@@ -23,6 +23,7 @@ export type Item = {
   place_id: number | null;
   place_name: string | null;
   is_checked: boolean;
+  amount: number;
   created_at: string;
 };
 

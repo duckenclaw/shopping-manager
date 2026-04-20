@@ -2,9 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { BottomNav } from './components/BottomNav';
 import { useMe } from './api/hooks';
 import ItemsPage from './pages/ItemsPage';
-import PlacePage from './pages/PlacePage';
 import AddItemPage from './pages/AddItemPage';
-import PlacesPage from './pages/PlacesPage';
 import DraftsPage from './pages/DraftsPage';
 import DraftPage from './pages/DraftPage';
 
@@ -51,8 +49,6 @@ export default function App() {
         <Routes>
           <Route path="/" element={<ItemsPage />} />
           <Route path="/add-item" element={<AddItemPage />} />
-          <Route path="/place/:id" element={<PlacePage />} />
-          <Route path="/places" element={<PlacesPage />} />
           <Route path="/drafts" element={<DraftsPage />} />
           <Route path="/drafts/:id" element={<DraftPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

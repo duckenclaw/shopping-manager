@@ -14,7 +14,7 @@ function normalizeTag(raw: unknown): string | null {
 itemsRouter.get('/', async (_req, res) => {
   const userId = res.locals.user!.id;
   const { rows } = await pool.query(
-    `SELECT i.id, i.name, i.tag, i.place_id, i.is_checked, i.created_at, p.name AS place_name
+    `SELECT i.id, i.name, i.tag, i.place_id, i.is_checked, i.amount, i.created_at, p.name AS place_name
      FROM items i
      LEFT JOIN places p ON p.id = i.place_id
      WHERE i.user_id = $1
@@ -29,6 +29,7 @@ itemsRouter.post('/', async (req, res) => {
   const name = String(req.body?.name ?? '').trim();
   const tag = normalizeTag(req.body?.tag);
   const placeId = req.body?.placeId == null ? null : Number(req.body.placeId);
+  const amount = Math.max(1, Number(req.body?.amount) || 1);
   if (!name) {
     res.status(400).json({ error: 'name required' });
     return;
@@ -37,10 +38,10 @@ itemsRouter.post('/', async (req, res) => {
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `INSERT INTO items (user_id, place_id, name, tag)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, tag, place_id, is_checked, created_at`,
-      [userId, placeId, name, tag],
+      `INSERT INTO items (user_id, place_id, name, tag, amount)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, tag, place_id, is_checked, amount, created_at`,
+      [userId, placeId, name, tag, amount],
     );
     await client.query(
       `INSERT INTO item_catalog (user_id, name, tag, last_used_at)
@@ -64,15 +65,17 @@ itemsRouter.patch('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const placeId = req.body?.placeId === null ? null : req.body?.placeId != null ? Number(req.body.placeId) : undefined;
   const isChecked = typeof req.body?.isChecked === 'boolean' ? req.body.isChecked : undefined;
+  const amount = typeof req.body?.amount === 'number' ? Math.max(1, req.body.amount) : undefined;
   const sets: string[] = [];
   const vals: unknown[] = [];
   if (placeId !== undefined) { vals.push(placeId); sets.push(`place_id = $${vals.length}`); }
   if (isChecked !== undefined) { vals.push(isChecked); sets.push(`is_checked = $${vals.length}`); }
+  if (amount !== undefined) { vals.push(amount); sets.push(`amount = $${vals.length}`); }
   if (!sets.length) { res.json({ ok: true }); return; }
   vals.push(id); vals.push(userId);
   const { rows } = await pool.query(
     `UPDATE items SET ${sets.join(', ')} WHERE id = $${vals.length - 1} AND user_id = $${vals.length}
-     RETURNING id, name, tag, place_id, is_checked, created_at`,
+     RETURNING id, name, tag, place_id, is_checked, amount, created_at`,
     vals,
   );
   res.json(rows[0] ?? null);
@@ -83,6 +86,15 @@ itemsRouter.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
   await pool.query('DELETE FROM items WHERE id = $1 AND user_id = $2', [id, userId]);
   res.json({ ok: true });
+});
+
+itemsRouter.post('/complete', async (_req, res) => {
+  const userId = res.locals.user!.id;
+  const { rowCount } = await pool.query(
+    'DELETE FROM items WHERE user_id = $1 AND is_checked = true',
+    [userId],
+  );
+  res.json({ deleted: rowCount ?? 0 });
 });
 
 itemsRouter.post('/complete-trip', async (req, res) => {

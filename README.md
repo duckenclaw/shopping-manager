@@ -65,25 +65,15 @@ Open the bot chat and tap the menu button.
 Only Telegram usernames listed in `ALLOWED_USERNAMES` can use the app. The server cryptographically validates Telegram's `initData` signature on every request using your `BOT_TOKEN`. Unauthorized users see "У тебя нет доступа".
 
 ### Shopping List (main view)
-Items are grouped by **shopping place** and sorted by **tag** within each group. Swipe gestures on any item:
-- **Swipe left** → delete the item
-- **Swipe right** → move to a different place (bottom sheet)
-
-Tap **"Начать"** on any group to enter checklist mode.
-
-### Checklist Mode
-Items appear larger with a checkbox. Check off what you've put in the cart. Tap **"Завершить поездку"** to delete all checked items and return to the main view.
+A flat checklist sorted by tag. Swipe left on any item to delete it. Check items off as you shop — when at least one is checked a **"Готово (N)"** button appears and removes all checked items on tap. Each item has **−/+** amount controls. An **"+ Добавить"** button is always pinned at the bottom.
 
 ### Adding Items
-Tap **+** in the top-right corner. Start typing — the app searches your item history (catalog):
-- **Existing item** → tap to add instantly with its previous tag
-- **New item** → choose one of 8 tags (Фрукты, Овощи, Мясо, Кондименты, Крупы, Молочка, Сладкое, Дом), then tap "Добавить новый товар"
+Tap **+ Добавить**. Start typing — the app searches your previous items (catalog) and shows matches immediately:
+- **Tap a suggestion** → adds instantly with its saved tag
+- **No matches** → the tag picker appears; select a category and tap **"Добавить «…»"**
 
-### Shopping Places
-Manage stores/locations in the **Места** tab. Swipe left to delete a place (items in that place become unassigned).
-
-### Draft Trips (Templates)
-The **Шаблоны** tab lets you save a fixed list of items to reuse. Tap a draft, add items with tags, then press **"Применить к поездке"** — pick a destination place and all draft items are added at once.
+### Draft Templates
+The **Шаблоны** tab lets you save a reusable list of items. Tap a draft, add items with optional tags, then tap **"Применить к поездке"** to add all of them to the main list at once.
 
 ### Bot Text Commands
 Send a message directly to the bot in this format:
@@ -124,3 +114,99 @@ To reset all data:
 ```bash
 docker compose down -v
 ```
+
+---
+
+## Deploying to Railway
+
+[Railway](https://railway.com) runs the Express server and Postgres as two services inside one project. The server builds the Vite client and serves it as static files, so only a single service is needed for the app.
+
+### Prerequisites
+
+```bash
+npm install -g @railway/cli
+railway login
+```
+
+### 1 · Create the project
+
+```bash
+railway init          # creates a new project, prompts for a name
+```
+
+### 2 · Add Postgres
+
+```bash
+railway add --database postgres
+```
+
+Railway provisions a Postgres instance and automatically injects `DATABASE_URL` into every service in the project. No manual connection-string setup required.
+
+### 3 · Set environment variables
+
+Open the Railway dashboard → your project → the app service → **Variables** tab, then add:
+
+| Variable | Value |
+|----------|-------|
+| `BOT_TOKEN` | your Telegram bot token |
+| `ALLOWED_USERNAMES` | `"username1 username2"` |
+| `ENABLE_BOT` | `true` |
+
+> `DATABASE_URL` and `PORT` are injected by Railway automatically — do **not** set them manually.
+
+Or set them from the CLI:
+```bash
+railway variables set BOT_TOKEN=xxxx
+railway variables set ALLOWED_USERNAMES="user1 user2"
+railway variables set ENABLE_BOT=true
+```
+
+### 4 · Deploy
+
+**Option A — from the CLI (push current directory):**
+```bash
+railway up
+```
+
+**Option B — GitHub auto-deploy (recommended):**
+1. Push the repo to GitHub.
+2. Railway dashboard → New Service → **GitHub Repo** → select the repo.
+3. Every push to `main` triggers a redeploy automatically.
+
+Railway uses the [`nixpacks.toml`](nixpacks.toml) in the repo root to build:
+```
+npm ci → npm run build → node server/dist/index.js
+```
+The build compiles the TypeScript server and the Vite client. The Express server then serves the client's `dist/` folder as static files in production.
+
+### 5 · Get the public URL
+
+Railway dashboard → your app service → **Settings → Networking → Generate Domain**.
+
+You get a permanent `https://your-app.up.railway.app` URL with automatic SSL.
+
+### 6 · Configure the bot's menu button
+
+In Telegram, message [@BotFather](https://t.me/BotFather):
+```
+/mybots → your bot → Bot Settings → Menu Button → Configure menu button
+```
+Paste the Railway HTTPS URL and set a label (e.g. "Открыть"). The bot polls for messages from inside the same process, so no webhook configuration is needed.
+
+### Useful CLI commands
+
+```bash
+railway logs          # stream live logs
+railway status        # show project and deployment info
+railway open          # open the dashboard in a browser
+railway ssh           # open a shell inside the running container
+railway connect       # open a psql session to the Railway Postgres
+railway redeploy      # trigger a fresh deployment of the latest build
+```
+
+### Notes
+
+- **Pricing**: Railway's Hobby plan ($5/month) covers a small always-on app + Postgres comfortably. The free trial gives $5 in one-time credits.
+- **Postgres data**: Railway's managed Postgres persists across deployments. Use `railway connect` to run manual queries or exports.
+- **Schema migrations**: The server runs `schema.sql` on every startup using `ALTER TABLE … IF NOT EXISTS`, so adding new columns is safe and idempotent.
+- **Bot polling**: grammy's long-polling runs inside the Express process. If `ENABLE_BOT=false` the bot is skipped (useful for preview/staging environments).
