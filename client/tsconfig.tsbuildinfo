@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/env.d.ts","./src/main.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/env.d.ts","./src/main.tsx","./src/types.ts","./src/api/client.ts","./src/api/hooks.ts","./src/components/bottomnav.tsx","./src/components/sheet.tsx","./src/components/swiperow.tsx","./src/components/tagchip.tsx","./src/pages/additempage.tsx","./src/pages/draftpage.tsx","./src/pages/draftspage.tsx","./src/pages/itemspage.tsx","./src/pages/placepage.tsx","./src/pages/placespage.tsx"],"version":"5.9.3"}

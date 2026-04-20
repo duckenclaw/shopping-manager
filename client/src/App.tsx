@@ -1,81 +1,64 @@
-import { useEffect, useState } from 'react';
-import { retrieveRawInitData } from '@telegram-apps/sdk';
-
-type AuthUser = {
-  id: number;
-  username?: string;
-  firstName: string;
-  lastName?: string;
-  photoUrl?: string;
-};
-
-type AuthResult =
-  | { ok: true; hasAccess: boolean; user: AuthUser }
-  | { ok: false; error: string };
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BottomNav } from './components/BottomNav';
+import { useMe } from './api/hooks';
+import ItemsPage from './pages/ItemsPage';
+import PlacePage from './pages/PlacePage';
+import AddItemPage from './pages/AddItemPage';
+import PlacesPage from './pages/PlacesPage';
+import DraftsPage from './pages/DraftsPage';
+import DraftPage from './pages/DraftPage';
 
 export default function App() {
-  const [state, setState] = useState<AuthResult | null>(null);
+  const me = useMe();
 
-  useEffect(() => {
-    let raw: string | undefined;
-    try {
-      raw = retrieveRawInitData();
-    } catch {
-      raw = undefined;
-    }
-
-    if (!raw) {
-      setState({ ok: false, error: 'Open this app from Telegram.' });
-      return;
-    }
-
-    fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initDataRaw: raw }),
-    })
-      .then(async (r) => {
-        const body = await r.json();
-        if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`);
-        return body as { hasAccess: boolean; user: AuthUser };
-      })
-      .then((data) => setState({ ok: true, ...data }))
-      .catch((err) => setState({ ok: false, error: err.message ?? 'Auth failed' }));
-  }, []);
-
-  if (!state) {
-    return <div className="page"><div className="card">Loading…</div></div>;
+  if (me.isLoading) {
+    return <div className="page"><p className="muted">Загрузка…</p></div>;
   }
 
-  if (!state.ok) {
+  if (me.isError || !me.data) {
     return (
       <div className="page">
-        <div className="card">
-          <p className="deny">{state.error}</p>
+        <div className="card card--error">
+          Открой приложение из Telegram.
         </div>
       </div>
     );
   }
 
-  const { user, hasAccess } = state;
-  const initials =
-    (user.firstName?.[0] ?? '?') + (user.lastName?.[0] ?? '');
+  if (!me.data.hasAccess) {
+    return (
+      <div className="page">
+        <div className="card">
+          {me.data.user.photoUrl ? (
+            <img className="avatar" src={me.data.user.photoUrl} alt="" />
+          ) : (
+            <div className="avatar avatar--fallback">
+              {(me.data.user.firstName[0] ?? '?').toUpperCase()}
+            </div>
+          )}
+          <h1 className="name">
+            {me.data.user.username ? `@${me.data.user.username}` : me.data.user.firstName}
+          </h1>
+          <p className="status deny">У тебя нет доступа</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page">
-      <div className="card">
-        {user.photoUrl ? (
-          <img className="avatar" src={user.photoUrl} alt="" />
-        ) : (
-          <div className="avatar avatar--fallback">{initials.toUpperCase()}</div>
-        )}
-        <h1 className="name">
-          {user.username ? `@${user.username}` : user.firstName}
-        </h1>
-        <p className={`status ${hasAccess ? 'ok' : 'deny'}`}>
-          {hasAccess ? 'You have access' : "You don't have access"}
-        </p>
+    <BrowserRouter>
+      <div className="app">
+        <Routes>
+          <Route path="/" element={<ItemsPage />} />
+          <Route path="/add-item" element={<AddItemPage />} />
+          <Route path="/place/:id" element={<PlacePage />} />
+          <Route path="/places" element={<PlacesPage />} />
+          <Route path="/drafts" element={<DraftsPage />} />
+          <Route path="/drafts/:id" element={<DraftPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <BottomNav />
       </div>
-    </div>
+    </BrowserRouter>
   );
 }
