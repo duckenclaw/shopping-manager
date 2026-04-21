@@ -23,3 +23,13 @@ catalogRouter.get('/', async (req, res) => {
   );
   res.json(rows);
 });
+
+catalogRouter.delete('/:id', async (req, res) => {
+  const userId = res.locals.user!.id;
+  const id = Number(req.params.id);
+  await pool.query(
+    'DELETE FROM item_catalog WHERE id = $1 AND user_id = $2',
+    [id, userId],
+  );
+  res.json({ ok: true });
+});

@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TagChip } from '../components/TagChip';
-import { useCatalog, useCreateItem } from '../api/hooks';
+import { SwipeRow } from '../components/SwipeRow';
+import { useCatalog, useCreateItem, useDeleteCatalogEntry } from '../api/hooks';
 import { TAGS } from '../types';
 
 export default function AddItemPage() {
@@ -13,6 +14,7 @@ export default function AddItemPage() {
   const customInputRef = useRef<HTMLInputElement>(null);
   const catalog = useCatalog(q);
   const createItem = useCreateItem();
+  const deleteCatalog = useDeleteCatalogEntry();
 
   const suggestions = catalog.data ?? [];
   const exactMatch = useMemo(
@@ -61,21 +63,26 @@ export default function AddItemPage() {
         onChange={(e) => { setQ(e.target.value); setTag(null); }}
       />
 
-      {/* Catalog suggestions */}
+      {/* Catalog suggestions — swipe left to delete from history */}
       {suggestions.length > 0 && (
         <ul className="suggestion-list">
           {suggestions.map((s) => (
             <li key={s.id}>
-              <button className="suggestion" onClick={() => addExisting(s.name, s.tag)}>
-                <span>{s.name}</span>
-                {s.tag && <TagChip tag={s.tag} />}
-              </button>
+              <SwipeRow
+                leftLabel="Удалить"
+                onSwipeLeft={() => deleteCatalog.mutate(s.id)}
+              >
+                <button className="suggestion" onClick={() => addExisting(s.name, s.tag)}>
+                  <span>{s.name}</span>
+                  {s.tag && <TagChip tag={s.tag} />}
+                </button>
+              </SwipeRow>
             </li>
           ))}
         </ul>
       )}
 
-      {/* Tag picker — only when no catalog results */}
+      {/* Tag picker — only when search returns nothing */}
       {noResults && (
         <>
           <p className="muted" style={{ marginBottom: 8 }}>Категория (необязательно):</p>
@@ -89,7 +96,7 @@ export default function AddItemPage() {
               />
             ))}
 
-            {/* Custom tag — show selected custom tag OR the + button / input */}
+            {/* Custom tag: selected state OR input OR + button */}
             {tag && !TAGS.includes(tag as (typeof TAGS)[number]) ? (
               <button
                 type="button"
@@ -125,7 +132,7 @@ export default function AddItemPage() {
         </>
       )}
 
-      {/* Add as new — when typed and no exact match */}
+      {/* Add button — shown when typed and no exact match found */}
       {hasQuery && !exactMatch && (
         <button
           className="btn btn--primary btn--full btn--sticky"

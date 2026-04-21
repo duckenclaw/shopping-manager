@@ -9,7 +9,7 @@ export function startBot(token: string): void {
     ctx.reply(
       'Отправь сообщение в формате "Товар. Категория" — и я добавлю его в список.\n\n' +
       'Категории: Фрукты, Овощи, Мясо, Кондименты, Крупы, Молочка, Сладкое, Дом\n\n' +
-      'Или просто "Товар" — без категории.',
+      'Или просто "Товар" — категория подберётся из истории автоматически.',
     ),
   );
 
@@ -24,7 +24,7 @@ export function startBot(token: string): void {
 
     const sep = text.indexOf('. ');
     const itemName = (sep === -1 ? text : text.slice(0, sep)).trim();
-    const tag = sep === -1 ? null : text.slice(sep + 2).trim() || null;
+    const explicitTag = sep === -1 ? null : text.slice(sep + 2).trim() || null;
 
     if (!itemName) {
       await ctx.reply('Формат: "Товар. Категория" или просто "Товар"');
@@ -35,6 +35,17 @@ export function startBot(token: string): void {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // If no tag given, look up catalog for a previously saved tag
+      let tag = explicitTag;
+      if (!tag) {
+        const cached = await client.query(
+          'SELECT tag FROM item_catalog WHERE user_id = $1 AND LOWER(name) = LOWER($2)',
+          [userId, itemName],
+        );
+        tag = cached.rows[0]?.tag ?? null;
+      }
+
       await client.query(
         'INSERT INTO items (user_id, name, tag) VALUES ($1, $2, $3)',
         [userId, itemName, tag],
@@ -47,9 +58,11 @@ export function startBot(token: string): void {
            last_used_at = now()`,
         [userId, itemName, tag],
       );
+
       await client.query('COMMIT');
-      const reply = tag ? `Добавил: ${itemName} [${tag}]` : `Добавил: ${itemName}`;
-      await ctx.reply(reply);
+
+      const tagLabel = tag ? ` [${tag}]` : '';
+      await ctx.reply(`Добавил: ${itemName}${tagLabel}`);
     } catch (e) {
       await client.query('ROLLBACK');
       console.error('[bot] add failed', e);

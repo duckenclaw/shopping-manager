@@ -97,6 +97,14 @@ export function useCatalog(q: string) {
   });
 }
 
+export function useDeleteCatalogEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api(`/api/catalog/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalog'] }),
+  });
+}
+
 export function useDrafts() {
   return useQuery({ queryKey: ['drafts'], queryFn: () => api<Draft[]>('/api/drafts') });
 }
