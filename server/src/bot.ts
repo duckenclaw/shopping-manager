@@ -1,13 +1,14 @@
 import { Bot } from 'grammy';
 import { pool } from './db.js';
 import { isUsernameAllowed } from './auth.js';
+import { SHARED_USER_ID } from './constants.js';
 
 export function startBot(token: string): void {
   const bot = new Bot(token);
 
   bot.command('start', (ctx) =>
     ctx.reply(
-      'Отправь сообщение в формате "Товар. Категория" — и я добавлю его в список.\n\n' +
+      'Отправь сообщение в формате "Товар. Категория" — и я добавлю его в общий список.\n\n' +
       'Категории: Фрукты, Овощи, Мясо, Кондименты, Крупы, Молочка, Сладкое, Дом\n\n' +
       'Или просто "Товар" — категория подберётся из истории автоматически.',
     ),
@@ -31,24 +32,23 @@ export function startBot(token: string): void {
       return;
     }
 
-    const userId = from.id;
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // If no tag given, look up catalog for a previously saved tag
+      // If no tag given, look up the shared catalog for a previously saved tag
       let tag = explicitTag;
       if (!tag) {
         const cached = await client.query(
           'SELECT tag FROM item_catalog WHERE user_id = $1 AND LOWER(name) = LOWER($2)',
-          [userId, itemName],
+          [SHARED_USER_ID, itemName],
         );
         tag = cached.rows[0]?.tag ?? null;
       }
 
       await client.query(
         'INSERT INTO items (user_id, name, tag) VALUES ($1, $2, $3)',
-        [userId, itemName, tag],
+        [SHARED_USER_ID, itemName, tag],
       );
       await client.query(
         `INSERT INTO item_catalog (user_id, name, tag, last_used_at)
@@ -56,13 +56,13 @@ export function startBot(token: string): void {
          ON CONFLICT (user_id, name) DO UPDATE SET
            tag = COALESCE(EXCLUDED.tag, item_catalog.tag),
            last_used_at = now()`,
-        [userId, itemName, tag],
+        [SHARED_USER_ID, itemName, tag],
       );
 
       await client.query('COMMIT');
 
       const tagLabel = tag ? ` [${tag}]` : '';
-      await ctx.reply(`Добавил: ${itemName}${tagLabel}`);
+      await ctx.reply(`Добавил в общий список: ${itemName}${tagLabel}`);
     } catch (e) {
       await client.query('ROLLBACK');
       console.error('[bot] add failed', e);

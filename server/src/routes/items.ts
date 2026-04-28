@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
+import { SHARED_USER_ID } from '../constants.js';
 
 export const itemsRouter = Router();
 
@@ -10,20 +11,18 @@ function normalizeTag(raw: unknown): string | null {
 }
 
 itemsRouter.get('/', async (_req, res) => {
-  const userId = res.locals.user!.id;
   const { rows } = await pool.query(
     `SELECT i.id, i.name, i.tag, i.place_id, i.is_checked, i.amount, i.created_at, p.name AS place_name
      FROM items i
      LEFT JOIN places p ON p.id = i.place_id
      WHERE i.user_id = $1
      ORDER BY i.tag NULLS LAST, i.name ASC`,
-    [userId],
+    [SHARED_USER_ID],
   );
   res.json(rows);
 });
 
 itemsRouter.post('/', async (req, res) => {
-  const userId = res.locals.user!.id;
   const name = String(req.body?.name ?? '').trim();
   const tag = normalizeTag(req.body?.tag);
   const placeId = req.body?.placeId == null ? null : Number(req.body.placeId);
@@ -39,14 +38,14 @@ itemsRouter.post('/', async (req, res) => {
       `INSERT INTO items (user_id, place_id, name, tag, amount)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, name, tag, place_id, is_checked, amount, created_at`,
-      [userId, placeId, name, tag, amount],
+      [SHARED_USER_ID, placeId, name, tag, amount],
     );
     await client.query(
       `INSERT INTO item_catalog (user_id, name, tag, last_used_at)
        VALUES ($1, $2, $3, now())
        ON CONFLICT (user_id, name)
        DO UPDATE SET tag = COALESCE(EXCLUDED.tag, item_catalog.tag), last_used_at = now()`,
-      [userId, name, tag],
+      [SHARED_USER_ID, name, tag],
     );
     await client.query('COMMIT');
     res.json(rows[0]);
@@ -59,7 +58,6 @@ itemsRouter.post('/', async (req, res) => {
 });
 
 itemsRouter.patch('/:id', async (req, res) => {
-  const userId = res.locals.user!.id;
   const id = Number(req.params.id);
   const placeId = req.body?.placeId === null ? null : req.body?.placeId != null ? Number(req.body.placeId) : undefined;
   const isChecked = typeof req.body?.isChecked === 'boolean' ? req.body.isChecked : undefined;
@@ -70,7 +68,7 @@ itemsRouter.patch('/:id', async (req, res) => {
   if (isChecked !== undefined) { vals.push(isChecked); sets.push(`is_checked = $${vals.length}`); }
   if (amount !== undefined) { vals.push(amount); sets.push(`amount = $${vals.length}`); }
   if (!sets.length) { res.json({ ok: true }); return; }
-  vals.push(id); vals.push(userId);
+  vals.push(id); vals.push(SHARED_USER_ID);
   const { rows } = await pool.query(
     `UPDATE items SET ${sets.join(', ')} WHERE id = $${vals.length - 1} AND user_id = $${vals.length}
      RETURNING id, name, tag, place_id, is_checked, amount, created_at`,
@@ -80,23 +78,20 @@ itemsRouter.patch('/:id', async (req, res) => {
 });
 
 itemsRouter.delete('/:id', async (req, res) => {
-  const userId = res.locals.user!.id;
   const id = Number(req.params.id);
-  await pool.query('DELETE FROM items WHERE id = $1 AND user_id = $2', [id, userId]);
+  await pool.query('DELETE FROM items WHERE id = $1 AND user_id = $2', [id, SHARED_USER_ID]);
   res.json({ ok: true });
 });
 
 itemsRouter.post('/complete', async (_req, res) => {
-  const userId = res.locals.user!.id;
   const { rowCount } = await pool.query(
     'DELETE FROM items WHERE user_id = $1 AND is_checked = true',
-    [userId],
+    [SHARED_USER_ID],
   );
   res.json({ deleted: rowCount ?? 0 });
 });
 
 itemsRouter.post('/complete-trip', async (req, res) => {
-  const userId = res.locals.user!.id;
   const placeId = Number(req.body?.placeId);
   if (!placeId) {
     res.status(400).json({ error: 'placeId required' });
@@ -104,7 +99,7 @@ itemsRouter.post('/complete-trip', async (req, res) => {
   }
   const { rowCount } = await pool.query(
     'DELETE FROM items WHERE user_id = $1 AND place_id = $2 AND is_checked = true',
-    [userId, placeId],
+    [SHARED_USER_ID, placeId],
   );
   res.json({ deleted: rowCount ?? 0 });
 });

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
+import { SHARED_USER_ID } from '../constants.js';
 
 export const draftsRouter = Router();
 
@@ -10,7 +11,6 @@ function normalizeTag(raw: unknown): string | null {
 }
 
 draftsRouter.get('/', async (_req, res) => {
-  const userId = res.locals.user!.id;
   const { rows } = await pool.query(
     `SELECT d.id, d.name, d.created_at,
             COALESCE(json_agg(json_build_object('id', di.id, 'name', di.name, 'tag', di.tag))
@@ -20,13 +20,12 @@ draftsRouter.get('/', async (_req, res) => {
      WHERE d.user_id = $1
      GROUP BY d.id
      ORDER BY d.created_at DESC`,
-    [userId],
+    [SHARED_USER_ID],
   );
   res.json(rows);
 });
 
 draftsRouter.post('/', async (req, res) => {
-  const userId = res.locals.user!.id;
   const name = String(req.body?.name ?? '').trim();
   if (!name) {
     res.status(400).json({ error: 'name required' });
@@ -34,20 +33,18 @@ draftsRouter.post('/', async (req, res) => {
   }
   const { rows } = await pool.query(
     'INSERT INTO drafts (user_id, name) VALUES ($1, $2) RETURNING id, name, created_at',
-    [userId, name],
+    [SHARED_USER_ID, name],
   );
   res.json({ ...rows[0], items: [] });
 });
 
 draftsRouter.delete('/:id', async (req, res) => {
-  const userId = res.locals.user!.id;
   const id = Number(req.params.id);
-  await pool.query('DELETE FROM drafts WHERE id = $1 AND user_id = $2', [id, userId]);
+  await pool.query('DELETE FROM drafts WHERE id = $1 AND user_id = $2', [id, SHARED_USER_ID]);
   res.json({ ok: true });
 });
 
 draftsRouter.post('/:id/items', async (req, res) => {
-  const userId = res.locals.user!.id;
   const draftId = Number(req.params.id);
   const name = String(req.body?.name ?? '').trim();
   const tag = normalizeTag(req.body?.tag);
@@ -55,7 +52,7 @@ draftsRouter.post('/:id/items', async (req, res) => {
     res.status(400).json({ error: 'name required' });
     return;
   }
-  const owner = await pool.query('SELECT 1 FROM drafts WHERE id = $1 AND user_id = $2', [draftId, userId]);
+  const owner = await pool.query('SELECT 1 FROM drafts WHERE id = $1 AND user_id = $2', [draftId, SHARED_USER_ID]);
   if (!owner.rowCount) {
     res.status(404).json({ error: 'draft not found' });
     return;
@@ -68,25 +65,23 @@ draftsRouter.post('/:id/items', async (req, res) => {
 });
 
 draftsRouter.delete('/:draftId/items/:itemId', async (req, res) => {
-  const userId = res.locals.user!.id;
   const draftId = Number(req.params.draftId);
   const itemId = Number(req.params.itemId);
   await pool.query(
     `DELETE FROM draft_items
      WHERE id = $1 AND draft_id IN (SELECT id FROM drafts WHERE id = $2 AND user_id = $3)`,
-    [itemId, draftId, userId],
+    [itemId, draftId, SHARED_USER_ID],
   );
   res.json({ ok: true });
 });
 
 draftsRouter.post('/:id/apply', async (req, res) => {
-  const userId = res.locals.user!.id;
   const draftId = Number(req.params.id);
   const placeId = req.body?.placeId == null ? null : Number(req.body.placeId);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const draft = await client.query('SELECT 1 FROM drafts WHERE id = $1 AND user_id = $2', [draftId, userId]);
+    const draft = await client.query('SELECT 1 FROM drafts WHERE id = $1 AND user_id = $2', [draftId, SHARED_USER_ID]);
     if (!draft.rowCount) {
       await client.query('ROLLBACK');
       res.status(404).json({ error: 'draft not found' });
@@ -96,7 +91,7 @@ draftsRouter.post('/:id/apply', async (req, res) => {
       `INSERT INTO items (user_id, place_id, name, tag)
        SELECT $1, $2, di.name, di.tag FROM draft_items di WHERE di.draft_id = $3
        RETURNING id, name, tag`,
-      [userId, placeId, draftId],
+      [SHARED_USER_ID, placeId, draftId],
     );
     for (const row of inserted.rows) {
       await client.query(
@@ -105,7 +100,7 @@ draftsRouter.post('/:id/apply', async (req, res) => {
          ON CONFLICT (user_id, name) DO UPDATE SET
            tag = COALESCE(EXCLUDED.tag, item_catalog.tag),
            last_used_at = now()`,
-        [userId, row.name, row.tag],
+        [SHARED_USER_ID, row.name, row.tag],
       );
     }
     await client.query('COMMIT');
