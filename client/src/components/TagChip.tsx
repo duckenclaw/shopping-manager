@@ -1,4 +1,4 @@
-const TAG_COLORS: Record<string, string> = {
+export const TAG_COLORS: Record<string, string> = {
   Фрукты: '#d14b8f',
   Овощи: '#3fa34d',
   Мясо: '#c0392b',
@@ -9,7 +9,12 @@ const TAG_COLORS: Record<string, string> = {
   Дом: '#7d8597',
 };
 
-const DEFAULT_COLOR = '#6b7280';
+export const DEFAULT_TAG_COLOR = '#6b7280';
+
+export function getTagColor(tag: string | null | undefined) {
+  if (!tag) return DEFAULT_TAG_COLOR;
+  return TAG_COLORS[tag] ?? DEFAULT_TAG_COLOR;
+}
 
 export function TagChip({
   tag,
@@ -20,7 +25,7 @@ export function TagChip({
   selected?: boolean;
   onClick?: () => void;
 }) {
-  const color = TAG_COLORS[tag] ?? DEFAULT_COLOR;
+  const color = getTagColor(tag);
   return (
     <button
       type="button"
