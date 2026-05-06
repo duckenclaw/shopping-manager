@@ -4,6 +4,31 @@ import { TagChip, getTagColor } from '../components/TagChip';
 import { SwipeRow } from '../components/SwipeRow';
 import { useCatalog, useCreateItem, useDeleteCatalogEntry } from '../api/hooks';
 import { TAGS } from '../types';
+import type { CatalogEntry } from '../types';
+
+const UNTAGGED_KEY = '__untagged__';
+
+function groupSuggestions(items: CatalogEntry[]) {
+  const groups = new Map<string, { tag: string | null; items: CatalogEntry[] }>();
+  for (const it of items) {
+    const key = it.tag ?? UNTAGGED_KEY;
+    let bucket = groups.get(key);
+    if (!bucket) {
+      bucket = { tag: it.tag, items: [] };
+      groups.set(key, bucket);
+    }
+    bucket.items.push(it);
+  }
+  const ordered: { tag: string | null; items: CatalogEntry[] }[] = [];
+  let untagged: { tag: string | null; items: CatalogEntry[] } | null = null;
+  for (const [key, bucket] of groups) {
+    if (key === UNTAGGED_KEY) untagged = bucket;
+    else ordered.push(bucket);
+  }
+  ordered.sort((a, b) => (a.tag ?? '').localeCompare(b.tag ?? '', 'ru'));
+  if (untagged) ordered.push(untagged);
+  return ordered;
+}
 
 export default function AddItemPage() {
   const navigate = useNavigate();
@@ -19,6 +44,7 @@ export default function AddItemPage() {
   const deleteCatalog = useDeleteCatalogEntry();
 
   const suggestions = catalog.data ?? [];
+  const groupedSuggestions = useMemo(() => groupSuggestions(suggestions), [suggestions]);
   const exactMatch = useMemo(
     () => suggestions.find((s) => s.name.toLowerCase() === q.trim().toLowerCase()),
     [suggestions, q],
@@ -69,26 +95,31 @@ export default function AddItemPage() {
         <h1>Добавить товар</h1>
       </header>
 
-      {suggestions.length > 0 && (
-        <div className="catalog-grid">
-          {suggestions.map((s) => (
-            <SwipeRow
-              key={s.id}
-              leftLabel="Удалить"
-              onSwipeLeft={() => deleteCatalog.mutate(s.id)}
-            >
-              <button
-                className="catalog-tile"
-                style={{ '--tag-color': getTagColor(s.tag) } as React.CSSProperties}
-                onClick={() => addExisting(s.name, s.tag)}
+      {groupedSuggestions.map((group) => (
+        <section
+          key={group.tag ?? UNTAGGED_KEY}
+          className="item-group item-group--catalog"
+          style={{ '--tag-color': getTagColor(group.tag) } as React.CSSProperties}
+        >
+          <span className="item-group__label">{group.tag ?? 'Без категории'}</span>
+          <div className="catalog-grid">
+            {group.items.map((s) => (
+              <SwipeRow
+                key={s.id}
+                leftLabel="Удалить"
+                onSwipeLeft={() => deleteCatalog.mutate(s.id)}
               >
-                <span className="catalog-tile__name">{s.name}</span>
-                {s.tag && <span className="catalog-tile__tag">{s.tag}</span>}
-              </button>
-            </SwipeRow>
-          ))}
-        </div>
-      )}
+                <button
+                  className="catalog-tile"
+                  onClick={() => addExisting(s.name, s.tag)}
+                >
+                  <span className="catalog-tile__name">{s.name}</span>
+                </button>
+              </SwipeRow>
+            ))}
+          </div>
+        </section>
+      ))}
 
       {noResults && (
         <>
