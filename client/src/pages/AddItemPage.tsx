@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TagChip } from '../components/TagChip';
+import { TagChip, getTagColor } from '../components/TagChip';
 import { SwipeRow } from '../components/SwipeRow';
 import { useCatalog, useCreateItem, useDeleteCatalogEntry } from '../api/hooks';
 import { TAGS } from '../types';
@@ -11,7 +11,9 @@ export default function AddItemPage() {
   const [tag, setTag] = useState<string | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customVal, setCustomVal] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
+  const toastTimerRef = useRef<number | null>(null);
   const catalog = useCatalog(q);
   const createItem = useCreateItem();
   const deleteCatalog = useDeleteCatalogEntry();
@@ -23,6 +25,18 @@ export default function AddItemPage() {
   );
   const hasQuery = q.trim().length > 0;
   const noResults = hasQuery && suggestions.length === 0;
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  function showToast(name: string) {
+    setToast(`✅ ${name} был успешно добавлен`);
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2000);
+  }
 
   function openCustom() {
     setCustomOpen(true);
@@ -38,7 +52,7 @@ export default function AddItemPage() {
 
   async function addExisting(name: string, existingTag: string | null) {
     await createItem.mutateAsync({ name, tag: existingTag });
-    navigate('/');
+    showToast(name);
   }
 
   async function addNew() {
@@ -49,40 +63,33 @@ export default function AddItemPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page page--add">
       <header className="page__header">
         <button className="back-btn" onClick={() => navigate('/')} aria-label="Назад">←</button>
         <h1>Добавить товар</h1>
       </header>
 
-      <input
-        className="input"
-        autoFocus
-        placeholder="Начните вводить название…"
-        value={q}
-        onChange={(e) => { setQ(e.target.value); setTag(null); }}
-      />
-
-      {/* Catalog suggestions — swipe left to delete from history */}
       {suggestions.length > 0 && (
-        <ul className="suggestion-list">
+        <div className="catalog-grid">
           {suggestions.map((s) => (
-            <li key={s.id}>
-              <SwipeRow
-                leftLabel="Удалить"
-                onSwipeLeft={() => deleteCatalog.mutate(s.id)}
+            <SwipeRow
+              key={s.id}
+              leftLabel="Удалить"
+              onSwipeLeft={() => deleteCatalog.mutate(s.id)}
+            >
+              <button
+                className="catalog-tile"
+                style={{ '--tag-color': getTagColor(s.tag) } as React.CSSProperties}
+                onClick={() => addExisting(s.name, s.tag)}
               >
-                <button className="suggestion" onClick={() => addExisting(s.name, s.tag)}>
-                  <span>{s.name}</span>
-                  {s.tag && <TagChip tag={s.tag} />}
-                </button>
-              </SwipeRow>
-            </li>
+                <span className="catalog-tile__name">{s.name}</span>
+                {s.tag && <span className="catalog-tile__tag">{s.tag}</span>}
+              </button>
+            </SwipeRow>
           ))}
-        </ul>
+        </div>
       )}
 
-      {/* Tag picker — only when search returns nothing */}
       {noResults && (
         <>
           <p className="muted" style={{ marginBottom: 8 }}>Категория (необязательно):</p>
@@ -96,7 +103,6 @@ export default function AddItemPage() {
               />
             ))}
 
-            {/* Custom tag: selected state OR input OR + button */}
             {tag && !TAGS.includes(tag as (typeof TAGS)[number]) ? (
               <button
                 type="button"
@@ -132,16 +138,26 @@ export default function AddItemPage() {
         </>
       )}
 
-      {/* Add button — shown when typed and no exact match found */}
       {hasQuery && !exactMatch && (
         <button
-          className="btn btn--primary btn--full btn--sticky"
+          className="btn btn--primary btn--full btn--add-new"
           onClick={addNew}
           disabled={createItem.isPending}
         >
           Добавить «{q.trim()}»{tag ? ` [${tag}]` : ''}
         </button>
       )}
+
+      {toast && <div className="toast">{toast}</div>}
+
+      <div className="search-bar--fixed">
+        <input
+          className="input"
+          placeholder="Начните вводить название…"
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setTag(null); }}
+        />
+      </div>
     </div>
   );
 }
