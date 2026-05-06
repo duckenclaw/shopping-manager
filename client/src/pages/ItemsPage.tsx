@@ -52,6 +52,7 @@ export default function ItemsPage() {
           className="item-group"
           style={{ '--tag-color': getTagColor(group.tag) } as React.CSSProperties}
         >
+          <span className="item-group__label">{group.tag ?? 'Без категории'}</span>
           <ul className="item-list">
             {group.items.map((it) => (
               <li key={it.id}>
