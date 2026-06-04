@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TagChip, getTagColor } from '../components/TagChip';
 import { SwipeRow } from '../components/SwipeRow';
-import { useCatalog, useCreateItem, useDeleteCatalogEntry } from '../api/hooks';
+import { useCatalog, useCategories, useCreateItem, useDeleteCatalogEntry } from '../api/hooks';
 import { TAGS } from '../types';
 import type { CatalogEntry } from '../types';
 
@@ -40,8 +40,18 @@ export default function AddItemPage() {
   const customInputRef = useRef<HTMLInputElement>(null);
   const toastTimerRef = useRef<number | null>(null);
   const catalog = useCatalog(q);
+  const categories = useCategories();
   const createItem = useCreateItem();
   const deleteCatalog = useDeleteCatalogEntry();
+
+  const categoryColors = useMemo(
+    () => Object.fromEntries((categories.data ?? []).map((c) => [c.name, c.color])),
+    [categories.data],
+  );
+  const customCategories = useMemo(
+    () => (categories.data ?? []).map((c) => c.name).filter((n) => !TAGS.includes(n as (typeof TAGS)[number])),
+    [categories.data],
+  );
 
   const suggestions = catalog.data ?? [];
   const groupedSuggestions = useMemo(() => groupSuggestions(suggestions), [suggestions]);
@@ -99,7 +109,7 @@ export default function AddItemPage() {
         <section
           key={group.tag ?? UNTAGGED_KEY}
           className="item-group item-group--catalog"
-          style={{ '--tag-color': getTagColor(group.tag) } as React.CSSProperties}
+          style={{ '--tag-color': getTagColor(group.tag, categoryColors) } as React.CSSProperties}
         >
           <span className="item-group__label">{group.tag ?? 'Без категории'}</span>
           <div className="catalog-grid">
@@ -131,14 +141,24 @@ export default function AddItemPage() {
                 tag={t}
                 selected={tag === t}
                 onClick={() => setTag(tag === t ? null : t)}
+                categoryColors={categoryColors}
+              />
+            ))}
+            {customCategories.map((t) => (
+              <TagChip
+                key={t}
+                tag={t}
+                selected={tag === t}
+                onClick={() => setTag(tag === t ? null : t)}
+                categoryColors={categoryColors}
               />
             ))}
 
-            {tag && !TAGS.includes(tag as (typeof TAGS)[number]) ? (
+            {tag && !TAGS.includes(tag as (typeof TAGS)[number]) && !customCategories.includes(tag) ? (
               <button
                 type="button"
                 className="tag-chip tag-chip--selected tag-chip--clickable"
-                style={{ '--tag-color': '#6b7280' } as React.CSSProperties}
+                style={{ '--tag-color': getTagColor(tag, categoryColors) } as React.CSSProperties}
                 onClick={() => setTag(null)}
               >
                 {tag} ×

@@ -1,9 +1,21 @@
+import { useEffect, useMemo, useState } from 'react';
 import { SwipeRow } from '../components/SwipeRow';
 import { getTagColor } from '../components/TagChip';
-import { useCompleteAll, useDeleteItem, useItems, useUpdateItem } from '../api/hooks';
+import { useCategories, useCompleteAll, useDeleteItem, useItems, useUpdateItem } from '../api/hooks';
 import type { Item } from '../types';
 
 const UNTAGGED_KEY = '__untagged__';
+const COLLAPSED_KEY = 'collapsedCategories';
+
+function loadCollapsed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+  } catch {
+    /* ignore malformed storage */
+  }
+  return new Set();
+}
 
 function groupItems(items: Item[]) {
   const groups = new Map<string, { tag: string | null; items: Item[] }>();
@@ -28,9 +40,30 @@ function groupItems(items: Item[]) {
 
 export default function ItemsPage() {
   const items = useItems();
+  const categories = useCategories();
   const deleteItem = useDeleteItem();
   const updateItem = useUpdateItem();
   const completeAll = useCompleteAll();
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+
+  useEffect(() => {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
+  }, [collapsed]);
+
+  function toggleCollapsed(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const categoryColors = useMemo(
+    () => Object.fromEntries((categories.data ?? []).map((c) => [c.name, c.color])),
+    [categories.data],
+  );
 
   const allItems = items.data ?? [];
   const checkedCount = allItems.filter((i) => i.is_checked).length;
@@ -46,13 +79,25 @@ export default function ItemsPage() {
         </div>
       )}
 
-      {groups.map((group) => (
+      {groups.map((group) => {
+        const key = group.tag ?? UNTAGGED_KEY;
+        const isCollapsed = collapsed.has(key);
+        return (
         <section
-          key={group.tag ?? UNTAGGED_KEY}
+          key={key}
           className="item-group"
-          style={{ '--tag-color': getTagColor(group.tag) } as React.CSSProperties}
+          style={{ '--tag-color': getTagColor(group.tag, categoryColors) } as React.CSSProperties}
         >
-          <span className="item-group__label">{group.tag ?? 'Без категории'}</span>
+          <button
+            type="button"
+            className="item-group__label item-group__label--toggle"
+            onClick={() => toggleCollapsed(key)}
+            aria-expanded={!isCollapsed}
+          >
+            <span className={`item-group__arrow${isCollapsed ? ' item-group__arrow--collapsed' : ''}`} aria-hidden="true">▾</span>
+            {group.tag ?? 'Без категории'}
+          </button>
+          {!isCollapsed && (
           <ul className="item-list">
             {group.items.map((it) => (
               <li key={it.id}>
@@ -82,8 +127,10 @@ export default function ItemsPage() {
               </li>
             ))}
           </ul>
+          )}
         </section>
-      ))}
+        );
+      })}
 
       {checkedCount > 0 && (
         <button

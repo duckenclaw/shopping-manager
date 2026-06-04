@@ -11,21 +11,25 @@ export const TAG_COLORS: Record<string, string> = {
 
 export const DEFAULT_TAG_COLOR = '#6b7280';
 
-export function getTagColor(tag: string | null | undefined) {
+export type CategoryColorMap = Record<string, string>;
+
+export function getTagColor(tag: string | null | undefined, categoryColors?: CategoryColorMap) {
   if (!tag) return DEFAULT_TAG_COLOR;
-  return TAG_COLORS[tag] ?? DEFAULT_TAG_COLOR;
+  return TAG_COLORS[tag] ?? categoryColors?.[tag] ?? DEFAULT_TAG_COLOR;
 }
 
 export function TagChip({
   tag,
   selected,
   onClick,
+  categoryColors,
 }: {
   tag: string;
   selected?: boolean;
   onClick?: () => void;
+  categoryColors?: CategoryColorMap;
 }) {
-  const color = getTagColor(tag);
+  const color = getTagColor(tag, categoryColors);
   return (
     <button
       type="button"

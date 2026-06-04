@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import type { AuthMe, CatalogEntry, Draft, Item, Place, Tag } from '../types';
+import type { AuthMe, Category, CatalogEntry, Draft, Item, Place, Tag } from '../types';
 
 export function useMe() {
   return useQuery({ queryKey: ['me'], queryFn: () => api<AuthMe>('/api/me') });
@@ -45,7 +45,21 @@ export function useCreateItem() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['items'] });
       qc.invalidateQueries({ queryKey: ['catalog'] });
+      qc.invalidateQueries({ queryKey: ['categories'] });
     },
+  });
+}
+
+export function useCategories() {
+  return useQuery({ queryKey: ['categories'], queryFn: () => api<Category[]>('/api/categories') });
+}
+
+export function useCreateCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; color?: string }) =>
+      api<Category>('/api/categories', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
   });
 }
 

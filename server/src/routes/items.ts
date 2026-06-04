@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { SHARED_USER_ID } from '../constants.js';
+import { PREDEFINED_TAGS, randomCategoryColor, SHARED_USER_ID } from '../constants.js';
 
 export const itemsRouter = Router();
 
@@ -47,6 +47,14 @@ itemsRouter.post('/', async (req, res) => {
        DO UPDATE SET tag = COALESCE(EXCLUDED.tag, item_catalog.tag), last_used_at = now()`,
       [SHARED_USER_ID, name, tag],
     );
+    if (tag && !PREDEFINED_TAGS.includes(tag)) {
+      await client.query(
+        `INSERT INTO categories (user_id, name, color)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, name) DO NOTHING`,
+        [SHARED_USER_ID, tag, randomCategoryColor()],
+      );
+    }
     await client.query('COMMIT');
     res.json(rows[0]);
   } catch {

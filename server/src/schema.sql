@@ -46,3 +46,13 @@ CREATE INDEX IF NOT EXISTS draft_items_draft_idx ON draft_items(draft_id);
 
 ALTER TABLE items ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE draft_items ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS categories (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, name)
+);
+CREATE INDEX IF NOT EXISTS categories_user_idx ON categories(user_id);

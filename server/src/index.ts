@@ -13,6 +13,7 @@ const { authMiddleware } = await import('./auth.js');
 const { placesRouter } = await import('./routes/places.js');
 const { itemsRouter } = await import('./routes/items.js');
 const { catalogRouter } = await import('./routes/catalog.js');
+const { categoriesRouter, backfillCategories } = await import('./routes/categories.js');
 const { draftsRouter } = await import('./routes/drafts.js');
 const { startBot } = await import('./bot.js');
 
@@ -27,6 +28,9 @@ const PORT = Number(process.env.PORT) || 3001;
 await runMigrations();
 console.log('[db] migrations applied');
 
+await backfillCategories();
+console.log('[db] categories backfilled');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -40,6 +44,7 @@ app.get('/api/me', (_req: Request, res: Response) => {
 app.use('/api/places', placesRouter);
 app.use('/api/items', itemsRouter);
 app.use('/api/catalog', catalogRouter);
+app.use('/api/categories', categoriesRouter);
 app.use('/api/drafts', draftsRouter);
 
 // Serve Vite-built client in production

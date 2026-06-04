@@ -35,6 +35,11 @@ export type CatalogEntry = {
   tag: Tag | null;
 };
 
+export type Category = {
+  name: string;
+  color: string;
+};
+
 export type Draft = {
   id: number;
   name: string;
