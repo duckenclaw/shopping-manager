@@ -18,7 +18,7 @@ catalogRouter.get('/', async (req, res) => {
   }
   const { rows } = await pool.query(
     `SELECT id, name, tag FROM item_catalog
-     WHERE user_id = $1 ORDER BY last_used_at DESC LIMIT 25`,
+     WHERE user_id = $1 ORDER BY last_used_at DESC`,
     [SHARED_USER_ID],
   );
   res.json(rows);
