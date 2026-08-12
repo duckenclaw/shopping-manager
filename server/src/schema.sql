@@ -1,22 +1,12 @@
-CREATE TABLE IF NOT EXISTS places (
-  id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (user_id, name)
-);
-
 CREATE TABLE IF NOT EXISTS items (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL,
-  place_id BIGINT REFERENCES places(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   tag TEXT,
   is_checked BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS items_user_idx ON items(user_id);
-CREATE INDEX IF NOT EXISTS items_place_idx ON items(place_id);
 
 CREATE TABLE IF NOT EXISTS item_catalog (
   id BIGSERIAL PRIMARY KEY,
@@ -28,24 +18,7 @@ CREATE TABLE IF NOT EXISTS item_catalog (
 );
 CREATE INDEX IF NOT EXISTS catalog_user_idx ON item_catalog(user_id);
 
-CREATE TABLE IF NOT EXISTS drafts (
-  id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS drafts_user_idx ON drafts(user_id);
-
-CREATE TABLE IF NOT EXISTS draft_items (
-  id BIGSERIAL PRIMARY KEY,
-  draft_id BIGINT NOT NULL REFERENCES drafts(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  tag TEXT
-);
-CREATE INDEX IF NOT EXISTS draft_items_draft_idx ON draft_items(draft_id);
-
 ALTER TABLE items ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE draft_items ADD COLUMN IF NOT EXISTS amount INTEGER NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS categories (
   id BIGSERIAL PRIMARY KEY,
@@ -56,3 +29,10 @@ CREATE TABLE IF NOT EXISTS categories (
   UNIQUE (user_id, name)
 );
 CREATE INDEX IF NOT EXISTS categories_user_idx ON categories(user_id);
+
+-- One-time cleanup: places and drafts were removed from the app.
+-- Idempotent, so it is safe to leave here across boots.
+ALTER TABLE items DROP COLUMN IF EXISTS place_id;
+DROP TABLE IF EXISTS draft_items;
+DROP TABLE IF EXISTS drafts;
+DROP TABLE IF EXISTS places;

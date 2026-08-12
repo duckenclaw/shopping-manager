@@ -3,8 +3,6 @@ import { BottomNav } from './components/BottomNav';
 import { useMe } from './api/hooks';
 import ItemsPage from './pages/ItemsPage';
 import AddItemPage from './pages/AddItemPage';
-import DraftsPage from './pages/DraftsPage';
-import DraftPage from './pages/DraftPage';
 
 export default function App() {
   const me = useMe();
@@ -49,8 +47,6 @@ export default function App() {
         <Routes>
           <Route path="/" element={<ItemsPage />} />
           <Route path="/add-item" element={<AddItemPage />} />
-          <Route path="/drafts" element={<DraftsPage />} />
-          <Route path="/drafts/:id" element={<DraftPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <BottomNav />
