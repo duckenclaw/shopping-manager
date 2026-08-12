@@ -2,17 +2,15 @@ import { useRef, useState, type ReactNode, type TouchEvent } from 'react';
 
 type Props = {
   children: ReactNode;
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
+  onSwipeLeft: () => void;
   leftLabel?: string;
-  rightLabel?: string;
   disabled?: boolean;
 };
 
 const THRESHOLD = 80;
 const MAX = 140;
 
-export function SwipeRow({ children, onSwipeLeft, onSwipeRight, leftLabel = 'Удалить', rightLabel = 'Переместить', disabled }: Props) {
+export function SwipeRow({ children, onSwipeLeft, leftLabel = 'Удалить', disabled }: Props) {
   const [dx, setDx] = useState(0);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -35,26 +33,23 @@ export function SwipeRow({ children, onSwipeLeft, onSwipeRight, leftLabel = 'У�
       }
     }
     if (locked.current !== 'x') return;
-    const clamped = Math.max(-MAX, Math.min(MAX, dX));
+    const clamped = Math.max(-MAX, Math.min(0, dX));
     setDx(clamped);
   };
 
   const onTouchEnd = () => {
     if (disabled) return;
-    if (dx <= -THRESHOLD && onSwipeLeft) onSwipeLeft();
-    else if (dx >= THRESHOLD && onSwipeRight) onSwipeRight();
+    if (dx <= -THRESHOLD) onSwipeLeft();
     setDx(0);
   };
 
-  const bgColor =
-    dx < 0 ? 'var(--danger)' : dx > 0 ? 'var(--accent)' : 'transparent';
-  const label = dx < 0 ? leftLabel : dx > 0 ? rightLabel : '';
-  const align = dx < 0 ? 'flex-end' : 'flex-start';
-
   return (
     <div className="swipe-row" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-      <div className="swipe-row__bg" style={{ background: bgColor, justifyContent: align }}>
-        <span className="swipe-row__label">{label}</span>
+      <div
+        className="swipe-row__bg"
+        style={{ background: dx < 0 ? 'var(--danger)' : 'transparent', justifyContent: 'flex-end' }}
+      >
+        <span className="swipe-row__label">{dx < 0 ? leftLabel : ''}</span>
       </div>
       <div className="swipe-row__fg" style={{ transform: `translateX(${dx}px)` }}>
         {children}

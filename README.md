@@ -72,15 +72,12 @@ Tap **+ Добавить**. Start typing — the app searches your previous item
 - **Tap a suggestion** → adds instantly with its saved tag
 - **No matches** → the tag picker appears; select a category and tap **"Добавить «…»"**
 
-### Draft Templates
-The **Шаблоны** tab lets you save a reusable list of items. Tap a draft, add items with optional tags, then tap **"Применить к поездке"** to add all of them to the main list at once.
-
 ### Bot Text Commands
 Send a message directly to the bot in this format:
 ```
-Яблоки. Пятёрочка
+Яблоки. Фрукты
 ```
-The bot adds "Яблоки" to the "Пятёрочка" place (creating the place if it doesn't exist). The known tag for that item (from previous adds) is reused automatically. Unrecognized items get no tag.
+The bot adds "Яблоки" to the shared list with the category "Фрукты". Send just `Яблоки` and the category is reused from previous adds; items with no history get no category.
 
 ## Project Structure
 
@@ -90,9 +87,8 @@ shopping-manager/
 ├── client/                   # Vite + React + TypeScript
 │   └── src/
 │       ├── api/              # TanStack Query hooks + fetch client
-│       ├── components/       # SwipeRow, TagChip, BottomNav, Sheet
-│       ├── pages/            # ItemsPage, PlacePage, AddItemPage,
-│       │                     #   PlacesPage, DraftsPage, DraftPage
+│       ├── components/       # SwipeRow, TagChip, BottomNav, IndexScrollbar
+│       ├── pages/            # ItemsPage, AddItemPage
 │       └── styles.css        # Full theme (#2e2e2e / #007C3D)
 └── server/                   # Express + TypeScript
     └── src/
@@ -100,7 +96,7 @@ shopping-manager/
         ├── db.ts             # pg Pool + migration runner
         ├── auth.ts           # initData validation middleware
         ├── bot.ts            # grammy polling bot
-        └── routes/           # places, items, catalog, drafts
+        └── routes/           # items, catalog, categories
 ```
 
 ## Database

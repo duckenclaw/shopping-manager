@@ -10,11 +10,9 @@ loadEnv({ path: resolve(__dirname, '../../.env') });
 
 const { pool, runMigrations } = await import('./db.js');
 const { authMiddleware } = await import('./auth.js');
-const { placesRouter } = await import('./routes/places.js');
 const { itemsRouter } = await import('./routes/items.js');
 const { catalogRouter } = await import('./routes/catalog.js');
 const { categoriesRouter, backfillCategories } = await import('./routes/categories.js');
-const { draftsRouter } = await import('./routes/drafts.js');
 const { startBot } = await import('./bot.js');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -41,11 +39,9 @@ app.get('/api/me', (_req: Request, res: Response) => {
   res.json({ user: res.locals.user, hasAccess: res.locals.hasAccess });
 });
 
-app.use('/api/places', placesRouter);
 app.use('/api/items', itemsRouter);
 app.use('/api/catalog', catalogRouter);
 app.use('/api/categories', categoriesRouter);
-app.use('/api/drafts', draftsRouter);
 
 // Serve Vite-built client in production
 const clientDist = resolve(__dirname, '../../client/dist');

@@ -12,18 +12,10 @@ export const TAGS = [
 export type PredefinedTag = (typeof TAGS)[number];
 export type Tag = string;
 
-export type Place = {
-  id: number;
-  name: string;
-  created_at: string;
-};
-
 export type Item = {
   id: number;
   name: string;
   tag: Tag | null;
-  place_id: number | null;
-  place_name: string | null;
   is_checked: boolean;
   amount: number;
   created_at: string;
@@ -38,13 +30,6 @@ export type CatalogEntry = {
 export type Category = {
   name: string;
   color: string;
-};
-
-export type Draft = {
-  id: number;
-  name: string;
-  created_at: string;
-  items: { id: number; name: string; tag: Tag | null }[];
 };
 
 export type AuthMe = {
