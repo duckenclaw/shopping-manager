@@ -2,11 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TagChip, getTagColor } from '../components/TagChip';
 import { SwipeRow } from '../components/SwipeRow';
+import { IndexScrollbar, type IndexSection } from '../components/IndexScrollbar';
 import { useCatalog, useCategories, useCreateItem, useDeleteCatalogEntry } from '../api/hooks';
 import { TAGS } from '../types';
 import type { CatalogEntry } from '../types';
 
 const UNTAGGED_KEY = '__untagged__';
+const UNTAGGED_LABEL = 'Без категории';
+/** distance from the viewport top a section is parked at when jumped to */
+const SCROLL_MARGIN = 28;
 
 function groupSuggestions(items: CatalogEntry[]) {
   const groups = new Map<string, { tag: string | null; items: CatalogEntry[] }>();
@@ -62,11 +66,76 @@ export default function AddItemPage() {
   const hasQuery = q.trim().length > 0;
   const noResults = hasQuery && suggestions.length === 0;
 
+  // one index letter per category, first-come wins when two categories share a letter
+  const indexSections = useMemo(() => {
+    const seen = new Set<string>();
+    const out: IndexSection[] = [];
+    for (const group of groupedSuggestions) {
+      const label = group.tag ?? UNTAGGED_LABEL;
+      const letter = group.tag ? group.tag.trim().charAt(0).toUpperCase() : '#';
+      if (seen.has(letter)) continue;
+      seen.add(letter);
+      out.push({ key: group.tag ?? UNTAGGED_KEY, letter, label });
+    }
+    return out;
+  }, [groupedSuggestions]);
+  const showIndex = !hasQuery && indexSections.length > 1;
+
+  const sectionRefs = useRef(new Map<string, HTMLElement>());
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  // while jumping, the scroll spy must not fight the target we just picked
+  const spyLockUntil = useRef(0);
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!showIndex) {
+      setActiveKey(null);
+      return;
+    }
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (performance.now() < spyLockUntil.current) return;
+      let current = indexSections[0].key;
+      for (const section of indexSections) {
+        const el = sectionRefs.current.get(section.key);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top - SCROLL_MARGIN > 1) break;
+        current = section.key;
+      }
+      // the last sections can sit closer together than a screen height
+      const doc = document.documentElement;
+      if (window.scrollY + window.innerHeight >= doc.scrollHeight - 2) {
+        current = indexSections[indexSections.length - 1].key;
+      }
+      setActiveKey(current);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [showIndex, indexSections]);
+
+  function jumpToSection(key: string, smooth: boolean) {
+    const el = sectionRefs.current.get(key);
+    if (!el) return;
+    window.scrollTo({
+      top: el.getBoundingClientRect().top + window.scrollY - SCROLL_MARGIN,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
+    setActiveKey(key);
+    spyLockUntil.current = performance.now() + (smooth ? 700 : 250);
+  }
 
   function showToast(name: string) {
     setToast(`✅ ${name} был успешно добавлен`);
@@ -99,37 +168,48 @@ export default function AddItemPage() {
   }
 
   return (
-    <div className="page page--add">
+    <div className={`page page--add${showIndex ? ' page--indexed' : ''}`}>
       <header className="page__header">
         <button className="back-btn" onClick={() => navigate('/')} aria-label="Назад">←</button>
         <h1>Добавить товар</h1>
       </header>
 
-      {groupedSuggestions.map((group) => (
-        <section
-          key={group.tag ?? UNTAGGED_KEY}
-          className="item-group item-group--catalog"
-          style={{ '--tag-color': getTagColor(group.tag, categoryColors) } as React.CSSProperties}
-        >
-          <span className="item-group__label">{group.tag ?? 'Без категории'}</span>
-          <div className="catalog-grid">
-            {group.items.map((s) => (
-              <SwipeRow
-                key={s.id}
-                leftLabel="Удалить"
-                onSwipeLeft={() => deleteCatalog.mutate(s.id)}
-              >
-                <button
-                  className="catalog-tile"
-                  onClick={() => addExisting(s.name, s.tag)}
+      {groupedSuggestions.map((group) => {
+        const key = group.tag ?? UNTAGGED_KEY;
+        return (
+          <section
+            key={key}
+            ref={(el) => {
+              if (el) sectionRefs.current.set(key, el);
+              else sectionRefs.current.delete(key);
+            }}
+            className="item-group item-group--catalog"
+            style={{ '--tag-color': getTagColor(group.tag, categoryColors) } as React.CSSProperties}
+          >
+            <span className="item-group__label">{group.tag ?? UNTAGGED_LABEL}</span>
+            <div className="catalog-grid">
+              {group.items.map((s) => (
+                <SwipeRow
+                  key={s.id}
+                  leftLabel="Удалить"
+                  onSwipeLeft={() => deleteCatalog.mutate(s.id)}
                 >
-                  <span className="catalog-tile__name">{s.name}</span>
-                </button>
-              </SwipeRow>
-            ))}
-          </div>
-        </section>
-      ))}
+                  <button
+                    className="catalog-tile"
+                    onClick={() => addExisting(s.name, s.tag)}
+                  >
+                    <span className="catalog-tile__name">{s.name}</span>
+                  </button>
+                </SwipeRow>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      {showIndex && (
+        <IndexScrollbar sections={indexSections} activeKey={activeKey} onSelect={jumpToSection} />
+      )}
 
       {noResults && (
         <>
