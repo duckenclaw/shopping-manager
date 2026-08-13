@@ -13,6 +13,7 @@ const { authMiddleware } = await import('./auth.js');
 const { itemsRouter } = await import('./routes/items.js');
 const { catalogRouter } = await import('./routes/catalog.js');
 const { categoriesRouter, backfillCategories } = await import('./routes/categories.js');
+const { historyRouter } = await import('./routes/history.js');
 const { startBot } = await import('./bot.js');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -42,6 +43,7 @@ app.get('/api/me', (_req: Request, res: Response) => {
 app.use('/api/items', itemsRouter);
 app.use('/api/catalog', catalogRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/history', historyRouter);
 
 // Serve Vite-built client in production
 const clientDist = resolve(__dirname, '../../client/dist');

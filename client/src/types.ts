@@ -21,6 +21,17 @@ export type Item = {
   created_at: string;
 };
 
+export type HistoryEntry = {
+  id: number;
+  name: string;
+  tag: Tag | null;
+  amount: number;
+  /** when the item was originally added to the list */
+  added_at: string;
+  /** when it was bought — i.e. when "Готово" was pressed */
+  completed_at: string;
+};
+
 export type CatalogEntry = {
   id: number;
   name: string;

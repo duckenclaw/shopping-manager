@@ -81,15 +81,24 @@ itemsRouter.patch('/:id', async (req, res) => {
   res.json(rows[0] ?? null);
 });
 
+// Discarding an item (swipe left) is not a purchase — deliberately no history row.
 itemsRouter.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
   await pool.query('DELETE FROM items WHERE id = $1 AND user_id = $2', [id, SHARED_USER_ID]);
   res.json({ ok: true });
 });
 
+// Completing items ("Готово") archives them into item_history, then removes them.
+// Single statement, so it cannot half-apply.
 itemsRouter.post('/complete', async (_req, res) => {
   const { rowCount } = await pool.query(
-    'DELETE FROM items WHERE user_id = $1 AND is_checked = true',
+    `WITH done AS (
+       DELETE FROM items
+       WHERE user_id = $1 AND is_checked = true
+       RETURNING name, tag, amount, created_at
+     )
+     INSERT INTO item_history (user_id, name, tag, amount, added_at)
+     SELECT $1, name, tag, amount, created_at FROM done`,
     [SHARED_USER_ID],
   );
   res.json({ deleted: rowCount ?? 0 });

@@ -65,7 +65,10 @@ Open the bot chat and tap the menu button.
 Only Telegram usernames listed in `ALLOWED_USERNAMES` can use the app. The server cryptographically validates Telegram's `initData` signature on every request using your `BOT_TOKEN`. Unauthorized users see "У тебя нет доступа".
 
 ### Shopping List (main view)
-A flat checklist sorted by tag. Swipe left on any item to delete it. Check items off as you shop — when at least one is checked a **"Готово (N)"** button appears and removes all checked items on tap. Each item has **−/+** amount controls. An **"+ Добавить"** button is always pinned at the bottom.
+A checklist grouped by category. Check items off as you shop — when at least one is checked a **"Готово (N)"** button appears and clears all checked items on tap, filing them into История. Swipe left on any item to discard it instead; discarded items are **not** recorded in История. Each item has **−/+** amount controls.
+
+### История (history)
+An append-only log of everything bought via **"Готово"**, grouped by purchase date (`Сегодня` / `Вчера` / `9 августа`). Each row shows the item, its category, the amount, and when it was originally added to the list. Read-only — history is never modified from the UI.
 
 ### Adding Items
 Tap **+ Добавить**. Start typing — the app searches your previous items (catalog) and shows matches immediately:
@@ -88,7 +91,7 @@ shopping-manager/
 │   └── src/
 │       ├── api/              # TanStack Query hooks + fetch client
 │       ├── components/       # SwipeRow, TagChip, BottomNav, IndexScrollbar
-│       ├── pages/            # ItemsPage, AddItemPage
+│       ├── pages/            # ItemsPage, AddItemPage, HistoryPage
 │       └── styles.css        # Full theme (#2e2e2e / #007C3D)
 └── server/                   # Express + TypeScript
     └── src/
@@ -96,7 +99,7 @@ shopping-manager/
         ├── db.ts             # pg Pool + migration runner
         ├── auth.ts           # initData validation middleware
         ├── bot.ts            # grammy polling bot
-        └── routes/           # items, catalog, categories
+        └── routes/           # items, catalog, categories, history
 ```
 
 ## Database

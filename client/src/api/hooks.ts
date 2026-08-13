@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import type { AuthMe, Category, CatalogEntry, Item, Tag } from '../types';
+import type { AuthMe, Category, CatalogEntry, HistoryEntry, Item, Tag } from '../types';
 
 export function useMe() {
   return useQuery({ queryKey: ['me'], queryFn: () => api<AuthMe>('/api/me') });
@@ -63,8 +63,15 @@ export function useCompleteAll() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api<{ deleted: number }>('/api/items/complete', { method: 'POST' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['items'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['items'] });
+      qc.invalidateQueries({ queryKey: ['history'] });
+    },
   });
+}
+
+export function useHistory() {
+  return useQuery({ queryKey: ['history'], queryFn: () => api<HistoryEntry[]>('/api/history') });
 }
 
 export function useCatalog(q: string) {
