@@ -3,9 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { TagChip, getTagColor } from '../components/TagChip';
 import { SwipeRow } from '../components/SwipeRow';
 import { IndexScrollbar, type IndexSection } from '../components/IndexScrollbar';
-import { useCatalog, useCategories, useCreateItem, useDeleteCatalogEntry } from '../api/hooks';
+import {
+  useCatalog,
+  useCategories,
+  useCreateItem,
+  useDeleteCatalogEntry,
+  useItems,
+  useStepAmount,
+} from '../api/hooks';
 import { TAGS } from '../types';
-import type { CatalogEntry } from '../types';
+import type { CatalogEntry, Item } from '../types';
 
 const UNTAGGED_KEY = '__untagged__';
 const UNTAGGED_LABEL = 'Без категории';
@@ -45,8 +52,20 @@ export default function AddItemPage() {
   const toastTimerRef = useRef<number | null>(null);
   const catalog = useCatalog(q);
   const categories = useCategories();
+  const items = useItems();
   const createItem = useCreateItem();
+  const stepAmount = useStepAmount();
   const deleteCatalog = useDeleteCatalogEntry();
+
+  // What each tile already contributes to the list. The exact name is the identity,
+  // matching the server's upsert; the oldest row wins if legacy duplicates exist.
+  const listedByName = useMemo(() => {
+    const map = new Map<string, Item>();
+    for (const it of items.data ?? []) {
+      if (!map.has(it.name)) map.set(it.name, it);
+    }
+    return map;
+  }, [items.data]);
 
   const categoryColors = useMemo(
     () => Object.fromEntries((categories.data ?? []).map((c) => [c.name, c.color])),
@@ -160,6 +179,7 @@ export default function AddItemPage() {
     showToast(name);
   }
 
+
   async function addNew() {
     const name = q.trim();
     if (!name) return;
@@ -188,20 +208,51 @@ export default function AddItemPage() {
           >
             <span className="item-group__label">{group.tag ?? UNTAGGED_LABEL}</span>
             <div className="catalog-grid">
-              {group.items.map((s) => (
-                <SwipeRow
-                  key={s.id}
-                  leftLabel="Удалить"
-                  onSwipeLeft={() => deleteCatalog.mutate(s.id)}
-                >
-                  <button
-                    className="catalog-tile"
-                    onClick={() => addExisting(s.name, s.tag)}
+              {group.items.map((s) => {
+                const listed = listedByName.get(s.name);
+                return (
+                  <SwipeRow
+                    key={s.id}
+                    leftLabel="Удалить"
+                    onSwipeLeft={() => deleteCatalog.mutate(s.id)}
                   >
-                    <span className="catalog-tile__name">{s.name}</span>
-                  </button>
-                </SwipeRow>
-              ))}
+                    <div className={`catalog-tile${listed ? ' catalog-tile--listed' : ''}`}>
+                      <span className="catalog-tile__name">{s.name}</span>
+                      {listed && <span className="catalog-tile__count">{listed.amount}</span>}
+                      {/* Tap zones sit on top of the label, so the whole tile is a target. */}
+                      <div className="catalog-tile__zones">
+                        {listed ? (
+                          <>
+                            <button
+                              type="button"
+                              className="catalog-tile__zone catalog-tile__zone--minus"
+                              aria-label={`Убрать один: ${s.name}`}
+                              onClick={() => stepAmount(listed.id, -1)}
+                            >
+                              −
+                            </button>
+                            <button
+                              type="button"
+                              className="catalog-tile__zone catalog-tile__zone--plus"
+                              aria-label={`Добавить ещё: ${s.name}`}
+                              onClick={() => stepAmount(listed.id, 1)}
+                            >
+                              +
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="catalog-tile__zone catalog-tile__zone--add"
+                            aria-label={`Добавить: ${s.name}`}
+                            onClick={() => addExisting(s.name, s.tag)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </SwipeRow>
+                );
+              })}
             </div>
           </section>
         );

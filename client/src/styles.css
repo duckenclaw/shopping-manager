@@ -428,25 +428,82 @@ a { color: inherit; text-decoration: none; }
 .catalog-grid .swipe-row { border-radius: 14px; }
 
 .catalog-tile {
+  position: relative;
   width: 100%;
   aspect-ratio: 1;
   background: var(--surface-2);
-  border: none;
+  border: 1px solid transparent;
   border-radius: 14px;
   padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  cursor: pointer;
   color: var(--text);
 }
-.catalog-tile:active { background: var(--line); }
+.catalog-tile--listed {
+  border-color: var(--tag-color);
+  background: color-mix(in srgb, var(--tag-color) 14%, var(--surface-2));
+  /* keep the name clear of the count badge and the −/+ strip */
+  padding: 18px 6px 20px;
+  overflow: hidden;
+}
+/* a tile is only ~93px tall, so cap long names rather than let them
+   spill onto the tap glyphs */
+.catalog-tile--listed .catalog-tile__name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
 .catalog-tile__name {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
   word-break: break-word;
+}
+.catalog-tile__count {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--tag-color);
+}
+
+/* Two halves of a listed tile: left removes one, right adds one. */
+.catalog-tile__zones {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  border-radius: inherit;
+  overflow: hidden;
+}
+.catalog-tile__zone {
+  position: relative;
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 0 0 4px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.catalog-tile__zone:active { background: rgba(127, 127, 127, 0.22); }
+/* the divider only spans the glyph strip, so it never cuts through the name */
+.catalog-tile__zone--minus::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  width: 1px;
+  height: 18px;
+  background: var(--line);
 }
 
 /* ------- index scrollbar (AddItemPage) ------- */

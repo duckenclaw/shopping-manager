@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SwipeRow } from '../components/SwipeRow';
 import { getTagColor } from '../components/TagChip';
-import { useCategories, useCompleteAll, useDeleteItem, useItems, useUpdateItem } from '../api/hooks';
+import { useCategories, useCompleteAll, useDeleteItem, useItems, useStepAmount, useUpdateItem } from '../api/hooks';
 import type { Item } from '../types';
 
 const UNTAGGED_KEY = '__untagged__';
@@ -43,6 +43,7 @@ export default function ItemsPage() {
   const categories = useCategories();
   const deleteItem = useDeleteItem();
   const updateItem = useUpdateItem();
+  const stepAmount = useStepAmount();
   const completeAll = useCompleteAll();
 
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
@@ -114,12 +115,12 @@ export default function ItemsPage() {
                       <button
                         className="amount-ctrl__btn"
                         disabled={it.amount <= 1}
-                        onClick={() => updateItem.mutate({ id: it.id, amount: it.amount - 1 })}
+                        onClick={() => stepAmount(it.id, -1)}
                       >−</button>
                       <span className="amount-ctrl__val">{it.amount}</span>
                       <button
                         className="amount-ctrl__btn"
-                        onClick={() => updateItem.mutate({ id: it.id, amount: it.amount + 1 })}
+                        onClick={() => stepAmount(it.id, 1)}
                       >+</button>
                     </div>
                   </label>
