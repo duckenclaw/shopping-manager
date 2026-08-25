@@ -509,6 +509,12 @@ a { color: inherit; text-decoration: none; }
 /* ------- index scrollbar (AddItemPage) ------- */
 .page--indexed { padding-right: 36px; }
 
+/* The native viewport bar sits right under the index bar and swallows drags
+   meant for it, so it stays hidden for the whole of AddItemPage. */
+html:has(.page--add) { scrollbar-width: none; }
+html:has(.page--add)::-webkit-scrollbar,
+html:has(.page--add) body::-webkit-scrollbar { width: 0; height: 0; }
+
 .index-bar {
   position: fixed;
   top: 72px;
