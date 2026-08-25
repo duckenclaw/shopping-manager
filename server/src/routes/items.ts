@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { PREDEFINED_TAGS, randomCategoryColor, SHARED_USER_ID } from '../constants.js';
+import { SHARED_USER_ID } from '../constants.js';
+import { addItem } from '../services/items.js';
 
 export const itemsRouter = Router();
 
@@ -32,29 +33,9 @@ itemsRouter.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query(
-      `INSERT INTO items (user_id, name, tag, amount)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, tag, is_checked, amount, created_at`,
-      [SHARED_USER_ID, name, tag, amount],
-    );
-    await client.query(
-      `INSERT INTO item_catalog (user_id, name, tag, last_used_at)
-       VALUES ($1, $2, $3, now())
-       ON CONFLICT (user_id, name)
-       DO UPDATE SET tag = COALESCE(EXCLUDED.tag, item_catalog.tag), last_used_at = now()`,
-      [SHARED_USER_ID, name, tag],
-    );
-    if (tag && !PREDEFINED_TAGS.includes(tag)) {
-      await client.query(
-        `INSERT INTO categories (user_id, name, color)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (user_id, name) DO NOTHING`,
-        [SHARED_USER_ID, tag, randomCategoryColor()],
-      );
-    }
+    const row = await addItem(client, { name, tag, amount });
     await client.query('COMMIT');
-    res.json(rows[0]);
+    res.json(row);
   } catch {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'db error' });
