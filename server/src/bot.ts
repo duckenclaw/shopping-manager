@@ -1,7 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import { pool } from './db.js';
 import { isUsernameAllowed } from './auth.js';
-import { dropPending, getPending, putPending, type Pending } from './bot-state.js';
+import { dropPending, getPending, putPending } from './bot-state.js';
 import { addItem, findSimilar, listCategories, type SimilarMatch } from './services/items.js';
 
 /** Categories per page in the picker. Two per row, so this fills three rows. */
@@ -14,8 +14,9 @@ export function startBot(token: string): void {
     ctx.reply(
       'Отправь сообщение в формате "Товар. Категория" — и я добавлю его в общий список.\n\n' +
       'Категории: Фрукты, Овощи, Мясо, Кондименты, Крупы, Молочка, Сладкое, Дом\n\n' +
-      'Или просто "Товар" — категория подберётся из истории автоматически.\n\n' +
-      'Если найдётся что-то похожее, я предложу выбрать из уже добавленного.',
+      'Или просто "Товар" — если он уже был в списке, категория подставится сама.\n\n' +
+      'Если найдётся что-то похожее, я предложу выбрать из уже добавленного, ' +
+      'а для нового товара спрошу категорию.',
     ),
   );
 
@@ -54,8 +55,18 @@ export function startBot(token: string): void {
       await commitAdd(ctx, exact.name, explicitTag ?? exact.tag);
       return;
     }
+    // Nothing similar. With a category already in the message there is nothing to
+    // ask; otherwise ask rather than quietly filing the item under no category.
     if (!matches.length) {
-      await commitAdd(ctx, itemName, explicitTag);
+      if (explicitTag) {
+        await commitAdd(ctx, itemName, explicitTag);
+        return;
+      }
+      const categories = await listCategories(matches);
+      const fresh = putPending({ query: itemName, explicitTag, matches, categories });
+      await ctx.reply(`Категория для «${itemName}»:`, {
+        reply_markup: categoryKeyboard(categories, fresh, 0),
+      });
       return;
     }
 
@@ -63,7 +74,7 @@ export function startBot(token: string): void {
       query: itemName,
       explicitTag,
       matches,
-      categories: await listCategories(),
+      categories: await listCategories(matches),
     });
 
     const kb = new InlineKeyboard();
@@ -110,13 +121,13 @@ export function startBot(token: string): void {
           }
           await ctx.editMessageText(`Добавляю «${entry.query}» как новый товар.`);
           await ctx.reply(`Категория для «${entry.query}»:`, {
-            reply_markup: categoryKeyboard(entry, token, 0),
+            reply_markup: categoryKeyboard(entry.categories, token, 0),
           });
           break;
         }
         case 'page': {
           await ctx.editMessageReplyMarkup({
-            reply_markup: categoryKeyboard(entry, token, Number(arg)),
+            reply_markup: categoryKeyboard(entry.categories, token, Number(arg)),
           });
           break;
         }
@@ -150,11 +161,11 @@ function pickExact(matches: SimilarMatch[], typed: string): SimilarMatch | undef
   return exact.find((m) => m.tag) ?? exact[0];
 }
 
-function categoryKeyboard(entry: Pending, token: string, page: number): InlineKeyboard {
-  const pages = Math.max(1, Math.ceil(entry.categories.length / CATEGORIES_PER_PAGE));
+function categoryKeyboard(categories: string[], token: string, page: number): InlineKeyboard {
+  const pages = Math.max(1, Math.ceil(categories.length / CATEGORIES_PER_PAGE));
   const current = ((page % pages) + pages) % pages;
   const start = current * CATEGORIES_PER_PAGE;
-  const slice = entry.categories.slice(start, start + CATEGORIES_PER_PAGE);
+  const slice = categories.slice(start, start + CATEGORIES_PER_PAGE);
 
   // Two per row, closing each row as it is filled. Closing a row that is already
   // closed would leave an empty row behind on even-length pages, which Telegram rejects.
