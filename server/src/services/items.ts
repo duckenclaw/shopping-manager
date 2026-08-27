@@ -134,15 +134,47 @@ export async function findSimilar(query: string): Promise<SimilarMatch[]> {
   return unique;
 }
 
-/** Every category that can be offered: the predefined ones first, then custom ones A-Z. */
-export async function listCategories(): Promise<string[]> {
-  const { rows } = await pool.query<{ name: string }>(
-    'SELECT name FROM categories WHERE user_id = $1',
-    [SHARED_USER_ID],
+/**
+ * Categories to offer, best guess first:
+ *   1. how many of the similar names found are in that category, weighted by how
+ *      good each match was — adding "Сыр Бри" alongside three cheeses puts
+ *      Молочка on top, and "Яблоко" favours Фрукты over a weaker "Молоко" hit;
+ *   2. how often the category is used at all, for a brand-new name with nothing
+ *      similar to learn from;
+ *   3. the predefined order, then custom ones A-Z, so ties stay stable.
+ * Every category is still offered — this only decides which page they land on.
+ */
+export async function listCategories(matches: SimilarMatch[] = []): Promise<string[]> {
+  const [{ rows: custom }, { rows: usage }] = await Promise.all([
+    pool.query<{ name: string }>('SELECT name FROM categories WHERE user_id = $1', [SHARED_USER_ID]),
+    pool.query<{ tag: string; n: number }>(
+      `SELECT tag, count(*)::int AS n FROM item_catalog
+       WHERE user_id = $1 AND tag IS NOT NULL GROUP BY tag`,
+      [SHARED_USER_ID],
+    ),
+  ]);
+
+  const ordered = [
+    ...PREDEFINED_TAGS,
+    ...custom
+      .map((r) => r.name)
+      .filter((n) => !PREDEFINED_TAGS.includes(n))
+      .sort((a, b) => a.localeCompare(b, 'ru')),
+  ];
+
+  const popularity = new Map(usage.map((r) => [r.tag, r.n]));
+  // Matches arrive best-first, so weight by rank rather than counting equally:
+  // one strong match should outrank a category that merely has more weak ones.
+  const relevance = new Map<string, number>();
+  matches.forEach((m, i) => {
+    if (m.tag) relevance.set(m.tag, (relevance.get(m.tag) ?? 0) + 1 / (i + 1));
+  });
+  const fallbackRank = new Map(ordered.map((name, i) => [name, i]));
+
+  return ordered.sort(
+    (a, b) =>
+      (relevance.get(b) ?? 0) - (relevance.get(a) ?? 0) ||
+      (popularity.get(b) ?? 0) - (popularity.get(a) ?? 0) ||
+      fallbackRank.get(a)! - fallbackRank.get(b)!,
   );
-  const custom = rows
-    .map((r) => r.name)
-    .filter((n) => !PREDEFINED_TAGS.includes(n))
-    .sort((a, b) => a.localeCompare(b, 'ru'));
-  return [...PREDEFINED_TAGS, ...custom];
 }
